@@ -84,29 +84,29 @@ def _build_dispatcher(storage) -> Dispatcher:
     return dp
 
 
-async def on_startup(bot: Bot, scheduler: AsyncIOScheduler, wl: WLBotManager):
-    await bot.set_webhook(
-        url=WEBHOOK_URL,
-        allowed_updates=["message", "callback_query"],
-        drop_pending_updates=True,
-    )
-    scheduler.start()
-    await wl.start_all()
-    logger.info(f"Webhook: {WEBHOOK_URL}")
-
-
-async def on_shutdown(bot: Bot, scheduler: AsyncIOScheduler, wl: WLBotManager):
-    scheduler.shutdown(wait=False)
-    await wl.stop_all()
-    await bot.delete_webhook()
-    await bot.session.close()
-    logger.info("Shutdown complete")
-
-
 async def run_webhook(bot: Bot, dp: Dispatcher, wl: WLBotManager):
     scheduler = _build_scheduler(bot, wl)
-    dp.startup.register(lambda: on_startup(bot, scheduler, wl))
-    dp.shutdown.register(lambda: on_shutdown(bot, scheduler, wl))
+
+    async def on_startup():
+        await bot.set_webhook(
+            url=WEBHOOK_URL,
+            allowed_updates=["message", "callback_query"],
+            drop_pending_updates=True,
+        )
+        scheduler.start()
+        await wl.start_all()
+        logger.info(f"Webhook set: {WEBHOOK_URL}")
+        logger.info(f"WL bots running: {wl.count()}")
+
+    async def on_shutdown():
+        scheduler.shutdown(wait=False)
+        await wl.stop_all()
+        await bot.delete_webhook()
+        await bot.session.close()
+        logger.info("Shutdown complete")
+
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
     app = web.Application()
     SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path=WEBHOOK_PATH)
