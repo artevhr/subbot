@@ -20,14 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 def _build_wl_dispatcher() -> Dispatcher:
-    """Минимальный диспетчер для WL-бота — только клиентский флоу."""
-    from bot.handlers import user_payment, start
+    """
+    Минимальный диспетчер для WL-бота.
+    build_wl_router() возвращает НОВЫЙ Router каждый раз —
+    один роутер нельзя подключить к двум Dispatcher'ам.
+    """
+    from bot.handlers.wl_client import build_wl_router
     dp = Dispatcher(storage=MemoryStorage())
     dp.update.middleware(AutoRegisterMiddleware())
-    # start.py обрабатывает join_<id> deeplinks
-    dp.include_router(start.router)
-    # user_payment.py — выбор метода, проверка, выдача ссылки
-    dp.include_router(user_payment.router)
+    dp.include_router(build_wl_router())
     return dp
 
 
